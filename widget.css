@@ -31,8 +31,12 @@
   opacity: 0;
   transition: opacity 0.25s ease;
   backdrop-filter: blur(2px);
+  pointer-events: none;
 }
-#wcp-overlay.wcp-visible { opacity: 1; }
+#wcp-overlay.wcp-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
 
 /* ---- Modal container ---- */
 #wcp-modal {
@@ -47,8 +51,15 @@
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   max-height: 92vh;
   overflow-y: auto;
+  pointer-events: none;
 }
-#wcp-modal.wcp-visible { transform: translateY(0); }
+#wcp-modal.wcp-visible {
+  transform: translateY(0);
+  pointer-events: auto;
+}
+/* المحتوى نفسه قابل للمس فقط لما مفتوح */
+#wcp-modal .wcp-inner { pointer-events: none; }
+#wcp-modal.wcp-visible .wcp-inner { pointer-events: auto; }
 
 /* Desktop: centered popup */
 @media (min-width: 640px) {
@@ -452,3 +463,13 @@
   display: none;
 }
 .wcp-error.wcp-show { display: block; }
+
+/* ---- الجوال: تصغير الزر ورفعه فوق شريط التنقل ---- */
+@media (max-width: 768px) {
+  #wcp-trigger {
+    bottom: 78px;
+    left: 10px;
+    font-size: 12px;
+    padding: 8px 12px 8px 10px;
+  }
+}
