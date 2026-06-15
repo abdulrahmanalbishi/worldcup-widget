@@ -1,0 +1,454 @@
+/* =====================================================
+   World Cup Predictor Widget — widget.css
+   أضف هذا في إعدادات CSS المخصص في متجرك
+   ===================================================== */
+
+/* ---- Variables ---- */
+:root {
+  --wcp-green:      #0a4f2e;
+  --wcp-green-mid:  #0f6b3e;
+  --wcp-green-lite: #e8f5ef;
+  --wcp-gold:       #c9a84c;
+  --wcp-gold-lite:  #fdf6e3;
+  --wcp-white:      #ffffff;
+  --wcp-gray-1:     #f7f7f5;
+  --wcp-gray-2:     #e8e8e4;
+  --wcp-gray-3:     #9e9e98;
+  --wcp-text:       #1a1a18;
+  --wcp-text-2:     #5a5a56;
+  --wcp-radius:     14px;
+  --wcp-radius-sm:  8px;
+  --wcp-shadow:     0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08);
+  --wcp-font:       'IBM Plex Sans Arabic', 'Tajawal', 'Noto Sans Arabic', system-ui, sans-serif;
+}
+
+/* ---- Overlay ---- */
+#wcp-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 20, 14, 0.55);
+  z-index: 99998;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  backdrop-filter: blur(2px);
+}
+#wcp-overlay.wcp-visible { opacity: 1; }
+
+/* ---- Modal container ---- */
+#wcp-modal {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 99999;
+  font-family: var(--wcp-font);
+  direction: rtl;
+  transform: translateY(100%);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  max-height: 92vh;
+  overflow-y: auto;
+}
+#wcp-modal.wcp-visible { transform: translateY(0); }
+
+/* Desktop: centered popup */
+@media (min-width: 640px) {
+  #wcp-modal {
+    bottom: auto;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    width: 420px;
+    max-height: 85vh;
+    transform: translate(-50%, -40%) scale(0.96);
+    opacity: 0;
+    transition: transform 0.28s cubic-bezier(0.22,1,0.36,1), opacity 0.22s ease;
+    border-radius: var(--wcp-radius);
+    overflow: hidden;
+  }
+  #wcp-modal.wcp-visible {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* ---- Modal inner ---- */
+.wcp-inner {
+  background: var(--wcp-white);
+  border-radius: var(--wcp-radius) var(--wcp-radius) 0 0;
+  overflow: hidden;
+}
+@media (min-width: 640px) {
+  .wcp-inner { border-radius: var(--wcp-radius); }
+}
+
+/* ---- Header ---- */
+.wcp-header {
+  background: var(--wcp-green);
+  padding: 18px 20px 16px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.wcp-header-icon {
+  width: 44px;
+  height: 44px;
+  background: rgba(201, 168, 76, 0.18);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.wcp-header-text { flex: 1; }
+.wcp-header h2 {
+  color: var(--wcp-white);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 2px;
+  line-height: 1.3;
+}
+.wcp-header p {
+  color: rgba(255,255,255,0.65);
+  font-size: 12px;
+  margin: 0;
+}
+.wcp-close {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 28px;
+  height: 28px;
+  background: rgba(255,255,255,0.12);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.8);
+  font-size: 16px;
+  transition: background 0.15s;
+  padding: 0;
+}
+.wcp-close:hover { background: rgba(255,255,255,0.22); }
+
+/* ---- Match card ---- */
+.wcp-body { padding: 16px; }
+
+.wcp-match-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.wcp-nav-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--wcp-gray-2);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--wcp-text-2);
+  transition: all 0.15s;
+}
+.wcp-nav-btn:hover:not(:disabled) {
+  border-color: var(--wcp-green);
+  color: var(--wcp-green);
+}
+.wcp-nav-btn:disabled { opacity: 0.3; cursor: default; }
+.wcp-match-counter {
+  font-size: 12px;
+  color: var(--wcp-text-2);
+}
+
+.wcp-match-card {
+  background: var(--wcp-gray-1);
+  border-radius: var(--wcp-radius-sm);
+  padding: 16px;
+  margin-bottom: 14px;
+  border: 1px solid var(--wcp-gray-2);
+}
+.wcp-match-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.wcp-match-date {
+  font-size: 11px;
+  color: var(--wcp-text-2);
+}
+.wcp-match-stage {
+  font-size: 10px;
+  background: var(--wcp-green-lite);
+  color: var(--wcp-green);
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.wcp-teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.wcp-team-flag { font-size: 32px; line-height: 1; }
+.wcp-team-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--wcp-text);
+  margin-top: 4px;
+}
+.wcp-vs {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--wcp-gray-3);
+  letter-spacing: 1px;
+}
+
+/* ---- Prediction buttons ---- */
+.wcp-predict-label {
+  font-size: 12px;
+  color: var(--wcp-text-2);
+  margin: 14px 0 8px;
+  font-weight: 500;
+}
+.wcp-predict-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.wcp-pred-btn {
+  padding: 9px 4px;
+  border: 1px solid var(--wcp-gray-2);
+  border-radius: var(--wcp-radius-sm);
+  background: var(--wcp-white);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--wcp-text-2);
+  font-family: var(--wcp-font);
+  transition: all 0.15s;
+  text-align: center;
+  line-height: 1.4;
+}
+.wcp-pred-btn:hover { border-color: var(--wcp-green-mid); color: var(--wcp-green); }
+.wcp-pred-btn.wcp-selected {
+  background: var(--wcp-green);
+  border-color: var(--wcp-green);
+  color: var(--wcp-white);
+}
+.wcp-pred-btn .wcp-btn-flag { display: block; font-size: 18px; margin-bottom: 3px; }
+
+/* ---- Score inputs ---- */
+.wcp-score-label {
+  font-size: 12px;
+  color: var(--wcp-text-2);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.wcp-score-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.wcp-score-team { text-align: center; }
+.wcp-score-flag { font-size: 20px; margin-bottom: 4px; }
+.wcp-score-input {
+  width: 52px;
+  height: 44px;
+  border: 1px solid var(--wcp-gray-2);
+  border-radius: var(--wcp-radius-sm);
+  text-align: center;
+  font-size: 20px;
+  font-weight: 600;
+  font-family: var(--wcp-font);
+  color: var(--wcp-text);
+  background: var(--wcp-white);
+  outline: none;
+  transition: border-color 0.15s;
+  -moz-appearance: textfield;
+}
+.wcp-score-input::-webkit-outer-spin-button,
+.wcp-score-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.wcp-score-input:focus { border-color: var(--wcp-green); }
+.wcp-score-dash { font-size: 18px; color: var(--wcp-gray-3); font-weight: 300; }
+
+/* ---- Points badge ---- */
+.wcp-points-hint {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.wcp-point-pill {
+  flex: 1;
+  background: var(--wcp-gold-lite);
+  border: 1px solid rgba(201,168,76,0.3);
+  border-radius: 6px;
+  padding: 6px 8px;
+  text-align: center;
+}
+.wcp-point-pill strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--wcp-green);
+}
+.wcp-point-pill span {
+  font-size: 10px;
+  color: var(--wcp-text-2);
+}
+
+/* ---- Email input ---- */
+.wcp-email-group { margin-bottom: 14px; }
+.wcp-email-label {
+  font-size: 12px;
+  color: var(--wcp-text-2);
+  margin-bottom: 6px;
+  font-weight: 500;
+  display: block;
+}
+.wcp-email-input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--wcp-gray-2);
+  border-radius: var(--wcp-radius-sm);
+  padding: 0 12px;
+  font-size: 13px;
+  font-family: var(--wcp-font);
+  color: var(--wcp-text);
+  background: var(--wcp-white);
+  outline: none;
+  box-sizing: border-box;
+  direction: ltr;
+  text-align: right;
+  transition: border-color 0.15s;
+}
+.wcp-email-input:focus { border-color: var(--wcp-green); }
+.wcp-email-input::placeholder { color: var(--wcp-gray-3); }
+
+/* ---- Submit button ---- */
+.wcp-submit {
+  width: 100%;
+  height: 46px;
+  background: var(--wcp-green);
+  color: var(--wcp-white);
+  border: none;
+  border-radius: var(--wcp-radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--wcp-font);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.wcp-submit:hover { background: var(--wcp-green-mid); }
+.wcp-submit:active { transform: scale(0.98); }
+.wcp-submit:disabled { opacity: 0.55; cursor: default; }
+
+/* ---- Success state ---- */
+.wcp-success {
+  text-align: center;
+  padding: 32px 20px;
+}
+.wcp-success-icon {
+  font-size: 52px;
+  margin-bottom: 12px;
+  display: block;
+}
+.wcp-success h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--wcp-text);
+  margin: 0 0 8px;
+}
+.wcp-success p {
+  font-size: 13px;
+  color: var(--wcp-text-2);
+  margin: 0 0 20px;
+  line-height: 1.6;
+}
+.wcp-success-pts {
+  display: inline-block;
+  background: var(--wcp-green-lite);
+  color: var(--wcp-green);
+  font-size: 15px;
+  font-weight: 700;
+  padding: 8px 20px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+}
+
+/* ---- Already predicted ---- */
+.wcp-already {
+  text-align: center;
+  padding: 24px 20px;
+  font-size: 13px;
+  color: var(--wcp-text-2);
+}
+.wcp-already strong { color: var(--wcp-green); display: block; font-size: 15px; margin-bottom: 6px; }
+
+/* ---- Powered by ---- */
+.wcp-footer {
+  padding: 10px 16px 14px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--wcp-gray-3);
+  border-top: 1px solid var(--wcp-gray-2);
+}
+
+/* ---- Trigger button (floating) ---- */
+#wcp-trigger {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 99990;
+  background: var(--wcp-green);
+  color: var(--wcp-white);
+  border: none;
+  border-radius: 24px;
+  padding: 10px 16px 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--wcp-font);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--wcp-shadow);
+  transition: transform 0.2s, background 0.15s;
+  direction: rtl;
+}
+#wcp-trigger:hover { transform: translateY(-2px); background: var(--wcp-green-mid); }
+#wcp-trigger .wcp-trigger-icon { font-size: 18px; }
+#wcp-trigger .wcp-trigger-badge {
+  background: var(--wcp-gold);
+  color: var(--wcp-green);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+/* ---- Error ---- */
+.wcp-error {
+  font-size: 11px;
+  color: #c0392b;
+  margin-top: 6px;
+  display: none;
+}
+.wcp-error.wcp-show { display: block; }
