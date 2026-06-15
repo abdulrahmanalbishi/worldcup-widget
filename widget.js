@@ -111,6 +111,9 @@
     if (!isOpen) return;
     isOpen = false;
 
+    /* تذكّر إن المستخدم قفل البوب أب — ما يطلع تلقائياً اليوم */
+    try { localStorage.setItem('wcp_dismissed_' + CFG.storeId, new Date().toDateString()); } catch(e) {}
+
     var overlay = document.getElementById('wcp-overlay');
     var modal   = document.getElementById('wcp-modal');
 
@@ -124,6 +127,12 @@
     }, 300);
 
     document.body.style.overflow = '';
+  }
+
+  function wasDismissedToday() {
+    try {
+      return localStorage.getItem('wcp_dismissed_' + CFG.storeId) === new Date().toDateString();
+    } catch(e) { return false; }
   }
 
   /* ---- Trigger button — يظهر فقط بعد تحميل البيانات ---- */
@@ -313,7 +322,7 @@
     dataReady = true;
     showTrigger(); /* الزر يظهر فقط بعد ما البيانات جاهزة */
 
-    if (CFG.trigger==='auto' && matches.length>0) {
+    if (CFG.trigger==='auto' && matches.length>0 && !wasDismissedToday()) {
       setTimeout(openWidget, CFG.delaySeconds*1000);
     }
 
