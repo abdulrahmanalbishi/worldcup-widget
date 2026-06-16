@@ -155,6 +155,13 @@
 
   function isMatchLocked(iso) { return new Date(iso)<=new Date(); }
 
+  /* تحويل match_id لاسم عربي */
+  window._wcpMatchName = function(matchId) {
+    var m = matches.find(function(x){ return x.id === matchId; });
+    if (m) return (m.home_flag||'')+(m.home_team||'')+' vs '+(m.away_team||'')+(m.away_flag||'');
+    return matchId.replace(/_2026/,'').replace(/_/,' vs ');
+  };
+
   function getCountdown(iso) {
     var diff=new Date(iso)-new Date();
     if(diff<=0)return null;
@@ -513,7 +520,7 @@
       var st=p.points>0?'✅':'p.points===0&&p.points!==null'?'❌':'⏳';
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:0.5px solid #e8e8e4;font-size:12px;">'+
         '<div>'+
-          '<div style="font-weight:500;color:#1a1a18;font-size:11px;">'+p.match_id.replace(/_2026/,'').replace(/_/,' vs ').toUpperCase()+'</div>'+
+          '<div style="font-weight:500;color:#1a1a18;font-size:11px;">'+window._wcpMatchName(p.match_id)+'</div>'+
           '<div style="color:#9e9e98;font-size:10px;">'+(lbl[p.prediction]||'—')+'</div>'+
         '</div>'+
         '<div style="text-align:left;">'+
