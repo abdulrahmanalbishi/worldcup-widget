@@ -530,3 +530,84 @@
     padding: 8px 12px 8px 10px;
   }
 }
+
+/* ---- التابات ---- */
+.wcp-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--wcp-gray-2);
+  background: var(--wcp-gray-1);
+}
+.wcp-tab {
+  flex: 1;
+  padding: 10px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--wcp-font);
+  color: var(--wcp-text-2);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+}
+.wcp-tab-active {
+  color: var(--wcp-green) !important;
+  border-bottom-color: var(--wcp-green) !important;
+  background: var(--wcp-white) !important;
+  font-weight: 600 !important;
+}
+
+/* ---- إصلاح شامل لكل الأزرار داخل الـ widget ---- */
+#wcp-modal * {
+  pointer-events: auto !important;
+  box-sizing: border-box;
+}
+#wcp-modal button,
+#wcp-modal input {
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---- اختيار الفريق ---- */
+.wcp-team-btn {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 8px 4px !important;
+  border: 1.5px solid var(--wcp-gray-2) !important;
+  border-radius: var(--wcp-radius-sm) !important;
+  background: var(--wcp-white) !important;
+  cursor: pointer !important;
+  font-family: var(--wcp-font) !important;
+  color: var(--wcp-text) !important;
+  transition: all 0.15s !important;
+  position: relative !important;
+  z-index: 1 !important;
+  min-height: 56px !important;
+}
+.wcp-team-btn:active {
+  transform: scale(0.94) !important;
+  background: var(--wcp-green-lite) !important;
+}
+.wcp-team-btn.wcp-team-sel {
+  background: var(--wcp-green) !important;
+  border-color: var(--wcp-green) !important;
+  color: white !important;
+}
+.wcp-team-btn.wcp-team-sel span {
+  color: white !important;
+}
+
+/* ---- الجوال ---- */
+@media (max-width: 768px) {
+  #wcp-trigger {
+    bottom: 78px !important;
+    left: 10px !important;
+    font-size: 12px !important;
+    padding: 8px 12px 8px 10px !important;
+  }
+}
