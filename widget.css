@@ -1,437 +1,498 @@
-(function () {
-  'use strict';
+/* =====================================================
+   World Cup Predictor Widget — widget.css
+   أضف هذا في إعدادات CSS المخصص في متجرك
+   ===================================================== */
 
-  var CFG = Object.assign({
-    supabaseUrl:  '',
-    supabaseKey:  '',
-    storeId:      'default',
-    trigger:      'auto',
-    delaySeconds: 8,
-    couponValue:  '10%',
-  }, window.WCP_CONFIG || {});
+/* ---- Variables ---- */
+:root {
+  --wcp-green:      #0a4f2e;
+  --wcp-green-mid:  #0f6b3e;
+  --wcp-green-lite: #e8f5ef;
+  --wcp-gold:       #c9a84c;
+  --wcp-gold-lite:  #fdf6e3;
+  --wcp-white:      #ffffff;
+  --wcp-gray-1:     #f7f7f5;
+  --wcp-gray-2:     #e8e8e4;
+  --wcp-gray-3:     #9e9e98;
+  --wcp-text:       #1a1a18;
+  --wcp-text-2:     #5a5a56;
+  --wcp-radius:     14px;
+  --wcp-radius-sm:  8px;
+  --wcp-shadow:     0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08);
+  --wcp-font:       'IBM Plex Sans Arabic', 'Tajawal', 'Noto Sans Arabic', system-ui, sans-serif;
+}
 
-  var matches     = [];
-  var currentIdx  = 0;
-  var predictions = {};
-  var savedPhones = {};
-  var userPhone   = '';
-  var userTeam    = '';
-  var isOpen      = false;
-  var dataReady   = false;
-  var STEP        = 'team'; // team | predict | success
+/* ---- Overlay ---- */
+#wcp-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 20, 14, 0.55);
+  z-index: 99998;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+#wcp-overlay.wcp-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
 
-  /* ---- Supabase ---- */
-  async function sbFetch(path, opts) {
-    opts = opts || {};
-    var res = await fetch(CFG.supabaseUrl + '/rest/v1/' + path, Object.assign({}, opts, {
-      headers: Object.assign({
-        'apikey':        CFG.supabaseKey,
-        'Authorization': 'Bearer ' + CFG.supabaseKey,
-        'Content-Type':  'application/json',
-        'Prefer':        opts.prefer || 'return=minimal',
-      }, opts.headers || {}),
-    }));
-    if (opts.returnJson === false) return res;
-    try { return await res.json(); } catch(e) { return null; }
+/* ---- Modal container ---- */
+#wcp-modal {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 99999;
+  font-family: var(--wcp-font);
+  direction: rtl;
+  transform: translateY(100%);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  max-height: 92vh;
+  overflow-y: auto;
+  pointer-events: none;
+}
+#wcp-modal.wcp-visible {
+  transform: translateY(0);
+  pointer-events: auto;
+}
+/* المحتوى نفسه قابل للمس فقط لما مفتوح */
+#wcp-modal .wcp-inner { pointer-events: none; }
+#wcp-modal.wcp-visible .wcp-inner { pointer-events: auto; }
+
+/* Desktop: centered popup */
+@media (min-width: 640px) {
+  #wcp-modal {
+    bottom: auto;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    width: 420px;
+    max-height: 85vh;
+    transform: translate(-50%, -40%) scale(0.96);
+    opacity: 0;
+    transition: transform 0.28s cubic-bezier(0.22,1,0.36,1), opacity 0.22s ease;
+    border-radius: var(--wcp-radius);
+    overflow: hidden;
   }
-
-  async function loadMatches() {
-    var now  = new Date().toISOString();
-    var plus3= new Date(Date.now() + 3*24*60*60*1000).toISOString();
-    var data = await sbFetch('matches?status=eq.upcoming&match_date=gte.'+now+'&match_date=lte.'+plus3+'&order=match_date.asc&limit=10');
-    matches  = Array.isArray(data) ? data : [];
-    // لو فيه فريق مفضل محفوظ، رتّب مباريات الفريق أول
-    if (userTeam) sortByFavorite();
+  #wcp-modal.wcp-visible {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
   }
+}
 
-  function sortByFavorite() {
-    matches.sort(function(a, b) {
-      var aFav = a.home_team.includes(userTeam) || a.away_team.includes(userTeam) ? 0 : 1;
-      var bFav = b.home_team.includes(userTeam) || b.away_team.includes(userTeam) ? 0 : 1;
-      return aFav - bFav;
-    });
+/* ---- Modal inner ---- */
+.wcp-inner {
+  background: var(--wcp-white);
+  border-radius: var(--wcp-radius) var(--wcp-radius) 0 0;
+  overflow: hidden;
+}
+@media (min-width: 640px) {
+  .wcp-inner { border-radius: var(--wcp-radius); }
+}
+
+/* ---- Header ---- */
+.wcp-header {
+  background: var(--wcp-green);
+  padding: 18px 20px 16px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.wcp-header-icon {
+  width: 44px;
+  height: 44px;
+  background: rgba(201, 168, 76, 0.18);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.wcp-header-text { flex: 1; }
+.wcp-header h2 {
+  color: var(--wcp-white);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 2px;
+  line-height: 1.3;
+}
+.wcp-header p {
+  color: rgba(255,255,255,0.65);
+  font-size: 12px;
+  margin: 0;
+}
+.wcp-close {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 28px;
+  height: 28px;
+  background: rgba(255,255,255,0.12);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.8);
+  font-size: 16px;
+  transition: background 0.15s;
+  padding: 0;
+}
+.wcp-close:hover { background: rgba(255,255,255,0.22); }
+
+/* ---- Match card ---- */
+.wcp-body { padding: 16px; }
+
+.wcp-match-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.wcp-nav-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--wcp-gray-2);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--wcp-text-2);
+  transition: all 0.15s;
+}
+.wcp-nav-btn:hover:not(:disabled) {
+  border-color: var(--wcp-green);
+  color: var(--wcp-green);
+}
+.wcp-nav-btn:disabled { opacity: 0.3; cursor: default; }
+.wcp-match-counter {
+  font-size: 12px;
+  color: var(--wcp-text-2);
+}
+
+.wcp-match-card {
+  background: var(--wcp-gray-1);
+  border-radius: var(--wcp-radius-sm);
+  padding: 16px;
+  margin-bottom: 14px;
+  border: 1px solid var(--wcp-gray-2);
+}
+.wcp-match-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.wcp-match-date {
+  font-size: 11px;
+  color: var(--wcp-text-2);
+}
+.wcp-match-stage {
+  font-size: 10px;
+  background: var(--wcp-green-lite);
+  color: var(--wcp-green);
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.wcp-teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.wcp-team-flag { font-size: 32px; line-height: 1; }
+.wcp-team-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--wcp-text);
+  margin-top: 4px;
+}
+.wcp-vs {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--wcp-gray-3);
+  letter-spacing: 1px;
+}
+
+/* ---- Prediction buttons ---- */
+.wcp-predict-label {
+  font-size: 12px;
+  color: var(--wcp-text-2);
+  margin: 14px 0 8px;
+  font-weight: 500;
+}
+.wcp-predict-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.wcp-pred-btn {
+  padding: 9px 4px;
+  border: 1px solid var(--wcp-gray-2);
+  border-radius: var(--wcp-radius-sm);
+  background: var(--wcp-white);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--wcp-text-2);
+  font-family: var(--wcp-font);
+  transition: all 0.15s;
+  text-align: center;
+  line-height: 1.4;
+}
+.wcp-pred-btn:hover { border-color: var(--wcp-green-mid); color: var(--wcp-green); }
+.wcp-pred-btn.wcp-selected {
+  background: var(--wcp-green);
+  border-color: var(--wcp-green);
+  color: var(--wcp-white);
+}
+.wcp-pred-btn .wcp-btn-flag { display: block; font-size: 18px; margin-bottom: 3px; }
+
+/* ---- Score inputs ---- */
+.wcp-score-label {
+  font-size: 12px;
+  color: var(--wcp-text-2);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.wcp-score-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.wcp-score-team { text-align: center; }
+.wcp-score-flag { font-size: 20px; margin-bottom: 4px; }
+.wcp-score-input {
+  width: 52px;
+  height: 44px;
+  border: 1px solid var(--wcp-gray-2);
+  border-radius: var(--wcp-radius-sm);
+  text-align: center;
+  font-size: 20px;
+  font-weight: 600;
+  font-family: var(--wcp-font);
+  color: var(--wcp-text);
+  background: var(--wcp-white);
+  outline: none;
+  transition: border-color 0.15s;
+  -moz-appearance: textfield;
+}
+.wcp-score-input::-webkit-outer-spin-button,
+.wcp-score-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.wcp-score-input:focus { border-color: var(--wcp-green); }
+.wcp-score-dash { font-size: 18px; color: var(--wcp-gray-3); font-weight: 300; }
+
+/* ---- Points badge ---- */
+.wcp-points-hint {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.wcp-point-pill {
+  flex: 1;
+  background: var(--wcp-gold-lite);
+  border: 1px solid rgba(201,168,76,0.3);
+  border-radius: 6px;
+  padding: 6px 8px;
+  text-align: center;
+}
+.wcp-point-pill strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--wcp-green);
+}
+.wcp-point-pill span {
+  font-size: 10px;
+  color: var(--wcp-text-2);
+}
+
+/* ---- Email input ---- */
+.wcp-email-group { margin-bottom: 14px; }
+.wcp-email-label {
+  font-size: 12px;
+  color: var(--wcp-text-2);
+  margin-bottom: 6px;
+  font-weight: 500;
+  display: block;
+}
+.wcp-email-input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--wcp-gray-2);
+  border-radius: var(--wcp-radius-sm);
+  padding: 0 12px;
+  font-size: 13px;
+  font-family: var(--wcp-font);
+  color: var(--wcp-text);
+  background: var(--wcp-white);
+  outline: none;
+  box-sizing: border-box;
+  direction: ltr;
+  text-align: right;
+  transition: border-color 0.15s;
+}
+.wcp-email-input:focus { border-color: var(--wcp-green); }
+.wcp-email-input::placeholder { color: var(--wcp-gray-3); }
+
+/* ---- Submit button ---- */
+.wcp-submit {
+  width: 100%;
+  height: 46px;
+  background: var(--wcp-green);
+  color: var(--wcp-white);
+  border: none;
+  border-radius: var(--wcp-radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--wcp-font);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.wcp-submit:hover { background: var(--wcp-green-mid); }
+.wcp-submit:active { transform: scale(0.98); }
+.wcp-submit:disabled { opacity: 0.55; cursor: default; }
+
+/* ---- Success state ---- */
+.wcp-success {
+  text-align: center;
+  padding: 32px 20px;
+}
+.wcp-success-icon {
+  font-size: 52px;
+  margin-bottom: 12px;
+  display: block;
+}
+.wcp-success h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--wcp-text);
+  margin: 0 0 8px;
+}
+.wcp-success p {
+  font-size: 13px;
+  color: var(--wcp-text-2);
+  margin: 0 0 20px;
+  line-height: 1.6;
+}
+.wcp-success-pts {
+  display: inline-block;
+  background: var(--wcp-green-lite);
+  color: var(--wcp-green);
+  font-size: 15px;
+  font-weight: 700;
+  padding: 8px 20px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+}
+
+/* ---- Already predicted ---- */
+.wcp-already {
+  text-align: center;
+  padding: 24px 20px;
+  font-size: 13px;
+  color: var(--wcp-text-2);
+}
+.wcp-already strong { color: var(--wcp-green); display: block; font-size: 15px; margin-bottom: 6px; }
+
+/* ---- Powered by ---- */
+.wcp-footer {
+  padding: 10px 16px 14px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--wcp-gray-3);
+  border-top: 1px solid var(--wcp-gray-2);
+}
+
+/* ---- Trigger button (floating) ---- */
+#wcp-trigger {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 99990;
+  background: var(--wcp-green);
+  color: var(--wcp-white);
+  border: none;
+  border-radius: 24px;
+  padding: 10px 16px 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--wcp-font);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--wcp-shadow);
+  transition: transform 0.2s, background 0.15s;
+  direction: rtl;
+}
+#wcp-trigger:hover { transform: translateY(-2px); background: var(--wcp-green-mid); }
+#wcp-trigger .wcp-trigger-icon { font-size: 18px; }
+#wcp-trigger .wcp-trigger-badge {
+  background: var(--wcp-gold);
+  color: var(--wcp-green);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+/* ---- Error ---- */
+.wcp-error {
+  font-size: 11px;
+  color: #c0392b;
+  margin-top: 6px;
+  display: none;
+}
+.wcp-error.wcp-show { display: block; }
+
+/* ---- الجوال: تصغير الزر ورفعه فوق شريط التنقل ---- */
+@media (max-width: 768px) {
+  #wcp-trigger {
+    bottom: 78px;
+    left: 10px;
+    font-size: 12px;
+    padding: 8px 12px 8px 10px;
   }
+}
 
-  function loadLocal() {
-    try {
-      savedPhones = JSON.parse(localStorage.getItem('wcp_phones_'+CFG.storeId)||'{}');
-      userPhone   = localStorage.getItem('wcp_phone_'+CFG.storeId)||'';
-      userTeam    = localStorage.getItem('wcp_team_'+CFG.storeId)||'';
-    } catch(e) { savedPhones={}; }
-  }
-
-  function saveLocal(matchId, phone) {
-    savedPhones[matchId] = phone;
-    try {
-      localStorage.setItem('wcp_phones_'+CFG.storeId, JSON.stringify(savedPhones));
-      localStorage.setItem('wcp_phone_'+CFG.storeId, phone);
-      if (userTeam) localStorage.setItem('wcp_team_'+CFG.storeId, userTeam);
-    } catch(e) {}
-  }
-
-  function wasDismissedToday() {
-    try { return localStorage.getItem('wcp_dismissed_'+CFG.storeId) === new Date().toDateString(); }
-    catch(e) { return false; }
-  }
-
-  function formatDate(iso) {
-    var d = new Date(iso);
-    var days   = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
-    var months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
-    return days[d.getDay()]+' '+d.getDate()+' '+months[d.getMonth()]+' — '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
-  }
-
-  /* ---- Build DOM ---- */
-  function buildHTML() {
-    var overlay = document.createElement('div');
-    overlay.id = 'wcp-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,20,14,0.55);z-index:99998;opacity:0;transition:opacity 0.25s;pointer-events:none;display:none;';
-    overlay.addEventListener('click', closeWidget);
-    document.body.appendChild(overlay);
-
-    var modal = document.createElement('div');
-    modal.id = 'wcp-modal';
-    modal.style.cssText = 'display:none;pointer-events:none;';
-    modal.innerHTML =
-      '<div class="wcp-inner">'+
-        '<div class="wcp-header">'+
-          '<div class="wcp-header-icon">⚽</div>'+
-          '<div class="wcp-header-text"><h2>تحدي التوقعات 🇸🇦</h2><p>توقع واربح '+CFG.couponValue+' خصم</p></div>'+
-          '<button class="wcp-close" id="wcp-close-btn" aria-label="إغلاق">✕</button>'+
-        '</div>'+
-        '<div class="wcp-body" id="wcp-body"></div>'+
-        '<div class="wcp-footer">⚡ مدعوم بـ World Cup Predictor</div>'+
-      '</div>';
-    document.body.appendChild(modal);
-    document.getElementById('wcp-close-btn').addEventListener('click', closeWidget);
-  }
-
-  /* ---- Open / Close ---- */
-  function openWidget() {
-    if (isOpen || !dataReady) return;
-    isOpen = true;
-    var overlay = document.getElementById('wcp-overlay');
-    var modal   = document.getElementById('wcp-modal');
-    overlay.style.display     = 'block';
-    modal.style.display       = 'block';
-    modal.style.pointerEvents = 'auto';
-    requestAnimationFrame(function(){
-      requestAnimationFrame(function(){
-        overlay.style.opacity       = '1';
-        overlay.style.pointerEvents = 'auto';
-        modal.classList.add('wcp-visible');
-      });
-    });
-    document.body.style.overflow = 'hidden';
-    // إذا ما عنده جوال أو فريق، ابدأ بخطوة الفريق
-    if (!userPhone) { STEP='team'; renderTeamStep(); }
-    else { STEP='predict'; renderMatch(); }
-  }
-
-  function closeWidget() {
-    if (!isOpen) return;
-    isOpen = false;
-    try { localStorage.setItem('wcp_dismissed_'+CFG.storeId, new Date().toDateString()); } catch(e) {}
-    var overlay = document.getElementById('wcp-overlay');
-    var modal   = document.getElementById('wcp-modal');
-    overlay.style.opacity       = '0';
-    overlay.style.pointerEvents = 'none';
-    modal.classList.remove('wcp-visible');
-    modal.style.pointerEvents   = 'none';
-    setTimeout(function(){
-      overlay.style.display = 'none';
-      modal.style.display   = 'none';
-    }, 300);
-    document.body.style.overflow = '';
-  }
-
-  /* ---- Step 1: اختيار الفريق ورقم الجوال ---- */
-  var TEAMS = [
-    {id:'ksa',name:'السعودية',flag:'🇸🇦'},{id:'arg',name:'الأرجنتين',flag:'🇦🇷'},
-    {id:'fra',name:'فرنسا',flag:'🇫🇷'},{id:'bra',name:'البرازيل',flag:'🇧🇷'},
-    {id:'eng',name:'إنجلترا',flag:'🏴󠁧󠁢󠁥󠁮󠁧󠁿'},{id:'esp',name:'إسبانيا',flag:'🇪🇸'},
-    {id:'ger',name:'ألمانيا',flag:'🇩🇪'},{id:'por',name:'البرتغال',flag:'🇵🇹'},
-    {id:'mor',name:'المغرب',flag:'🇲🇦'},{id:'egy',name:'مصر',flag:'🇪🇬'},
-    {id:'jap',name:'اليابان',flag:'🇯🇵'},{id:'mex',name:'المكسيك',flag:'🇲🇽'},
-  ];
-
-  function renderTeamStep() {
-    var body = document.getElementById('wcp-body');
-    var teamsHTML = TEAMS.map(function(t){
-      return '<button class="wcp-team-btn'+(userTeam===t.name?' wcp-team-sel':'')+'" data-name="'+t.name+'">'+
-        '<span style="font-size:22px;">'+t.flag+'</span>'+
-        '<span style="font-size:11px;margin-top:3px;">'+t.name+'</span>'+
-      '</button>';
-    }).join('');
-
-    body.innerHTML =
-      '<div style="padding:4px 0 10px;font-size:13px;font-weight:600;color:#1a1a18;">اختر فريقك المفضل</div>'+
-      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;">'+teamsHTML+'</div>'+
-      '<div class="wcp-email-group">'+
-        '<label class="wcp-email-label" for="wcp-phone">رقم جوالك (لاستلام الجائزة)</label>'+
-        '<input class="wcp-email-input" type="tel" id="wcp-phone" placeholder="05XXXXXXXX" value="'+userPhone+'" style="direction:ltr;text-align:right;">'+
-        '<div class="wcp-error" id="wcp-err"></div>'+
-      '</div>'+
-      '<button class="wcp-submit" id="wcp-step1-next"><span>➡️</span> التالي — توقع المباريات</button>';
-
-    body.querySelectorAll('.wcp-team-btn').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        body.querySelectorAll('.wcp-team-btn').forEach(function(b){ b.classList.remove('wcp-team-sel'); });
-        btn.classList.add('wcp-team-sel');
-        userTeam = btn.dataset.name;
-      });
-    });
-
-    document.getElementById('wcp-step1-next').addEventListener('click', function(){
-      var phone = (document.getElementById('wcp-phone')||{}).value||'';
-      phone = phone.trim();
-      var err = document.getElementById('wcp-err');
-      if (!phone || !/^05\d{8}$/.test(phone)) { showErr(err,'أدخل رقم جوال صحيح (05XXXXXXXX)'); return; }
-      userPhone = phone;
-      try { localStorage.setItem('wcp_phone_'+CFG.storeId, phone); } catch(e){}
-      if (userTeam) { try { localStorage.setItem('wcp_team_'+CFG.storeId, userTeam); } catch(e){} sortByFavorite(); }
-      STEP = 'predict';
-      var firstFresh = matches.findIndex(function(m){ return !savedPhones[m.id]; });
-      currentIdx = firstFresh === -1 ? 0 : firstFresh;
-      renderMatch();
-    });
-  }
-
-  /* ---- Step 2: التوقع ---- */
-  function renderMatch() {
-    var body = document.getElementById('wcp-body');
-    if (!body) return;
-
-    if (!matches.length) {
-      body.innerHTML = '<div style="text-align:center;padding:32px 20px;"><div style="font-size:40px;">🏆</div><p style="color:#5a5a56;font-size:14px;margin-top:12px;">لا توجد مباريات خلال 3 أيام القادمة</p></div>';
-      return;
-    }
-
-    var m     = matches[currentIdx];
-    var pred  = predictions[m.id] || {};
-    var total = matches.length;
-
-    if (savedPhones[m.id]) { renderAlready(m, body); return; }
-
-    var stages = {group:'دور المجموعات',r32:'دور الـ 32',qf:'ربع النهائي',sf:'نصف النهائي',final:'النهائي'};
-
-    body.innerHTML =
-      '<div class="wcp-match-nav">'+
-        '<button class="wcp-nav-btn" id="wcp-prev"'+(currentIdx===0?' disabled':'')+'>&#8250;</button>'+
-        '<span class="wcp-match-counter">مباراة '+(currentIdx+1)+' من '+total+'</span>'+
-        '<button class="wcp-nav-btn" id="wcp-next"'+(currentIdx===total-1?' disabled':'')+'>&#8249;</button>'+
-      '</div>'+
-      '<div class="wcp-match-card">'+
-        '<div class="wcp-match-meta">'+
-          '<span class="wcp-match-date">'+formatDate(m.match_date)+' — '+(m.venue||'')+'</span>'+
-          '<span class="wcp-match-stage">'+(stages[m.stage]||m.stage)+'</span>'+
-        '</div>'+
-        '<div class="wcp-teams">'+
-          '<div class="wcp-team"><div class="wcp-team-flag">'+(m.home_flag||'🏳️')+'</div><div class="wcp-team-name">'+m.home_team+'</div></div>'+
-          '<div class="wcp-vs">VS</div>'+
-          '<div class="wcp-team"><div class="wcp-team-flag">'+(m.away_flag||'🏳️')+'</div><div class="wcp-team-name">'+m.away_team+'</div></div>'+
-        '</div>'+
-      '</div>'+
-      '<div class="wcp-predict-label">من سيفوز؟</div>'+
-      '<div class="wcp-predict-row">'+
-        '<button class="wcp-pred-btn'+(pred.prediction==='home'?' wcp-selected':'')+'" data-val="home"><span class="wcp-btn-flag">'+(m.home_flag||'🏳️')+'</span>فوز '+m.home_team+'</button>'+
-        '<button class="wcp-pred-btn'+(pred.prediction==='draw'?' wcp-selected':'')+'" data-val="draw"><span class="wcp-btn-flag">🤝</span>تعادل</button>'+
-        '<button class="wcp-pred-btn'+(pred.prediction==='away'?' wcp-selected':'')+'" data-val="away"><span class="wcp-btn-flag">'+(m.away_flag||'🏳️')+'</span>فوز '+m.away_team+'</button>'+
-      '</div>'+
-      '<div class="wcp-score-label">توقع النتيجة التفصيلية (اختياري +15 نقطة)</div>'+
-      '<div class="wcp-score-row">'+
-        '<div class="wcp-score-team">'+
-          '<div class="wcp-score-flag">'+(m.home_flag||'🏳️')+'</div>'+
-          '<input class="wcp-score-input" type="number" id="wcp-hs" min="0" max="20" placeholder="0" value="'+(pred.home_score!=null?pred.home_score:'')+'">'+
-        '</div>'+
-        '<div class="wcp-score-dash">—</div>'+
-        '<div class="wcp-score-team">'+
-          '<div class="wcp-score-flag">'+(m.away_flag||'🏳️')+'</div>'+
-          '<input class="wcp-score-input" type="number" id="wcp-as" min="0" max="20" placeholder="0" value="'+(pred.away_score!=null?pred.away_score:'')+'">'+
-        '</div>'+
-      '</div>'+
-      '<div id="wcp-score-err" style="font-size:11px;color:#c0392b;margin-bottom:8px;display:none;"></div>'+
-      '<div class="wcp-points-hint">'+
-        '<div class="wcp-point-pill"><strong>+10</strong><span>فائز صح</span></div>'+
-        '<div class="wcp-point-pill"><strong>+25</strong><span>نتيجة تفصيلية</span></div>'+
-        '<div class="wcp-point-pill"><strong>'+CFG.couponValue+'</strong><span>جائزة الفائز</span></div>'+
-      '</div>'+
-      '<button class="wcp-submit" id="wcp-submit"><span>⚽</span> سجّل توقعي</button>';
-
-    /* اختيار الفائز */
-    body.querySelectorAll('.wcp-pred-btn').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        body.querySelectorAll('.wcp-pred-btn').forEach(function(b){ b.classList.remove('wcp-selected'); });
-        btn.classList.add('wcp-selected');
-        predictions[m.id] = Object.assign({}, predictions[m.id]||{}, {prediction: btn.dataset.val});
-        // مسح خطأ النتيجة لما يغير الاختيار
-        var scoreErr = document.getElementById('wcp-score-err');
-        if (scoreErr) scoreErr.style.display = 'none';
-      });
-    });
-
-    /* النتيجة التفصيلية — تحقق تلقائي */
-    function validateScores() {
-      var pred   = predictions[m.id] || {};
-      var winner = pred.prediction;
-      var hs     = parseInt((document.getElementById('wcp-hs')||{}).value)||0;
-      var as     = parseInt((document.getElementById('wcp-as')||{}).value)||0;
-      var scoreErr = document.getElementById('wcp-score-err');
-      if (!winner || (!hs && !as)) { if(scoreErr) scoreErr.style.display='none'; return true; }
-
-      var conflict = false;
-      if (winner==='home' && hs<=as) conflict=true;
-      if (winner==='away' && as<=hs) conflict=true;
-      if (winner==='draw' && hs!==as) conflict=true;
-
-      if (conflict && scoreErr) {
-        var msg = winner==='draw' ? 'التعادل يعني النتيجتين متساويتين' : 'النتيجة لا تتوافق مع اختيار الفائز';
-        scoreErr.textContent = '⚠️ '+msg;
-        scoreErr.style.display = 'block';
-        return false;
-      }
-      if (scoreErr) scoreErr.style.display='none';
-      return true;
-    }
-
-    var hs = document.getElementById('wcp-hs');
-    var as = document.getElementById('wcp-as');
-    if (hs) hs.addEventListener('input', function(e){
-      predictions[m.id] = Object.assign({}, predictions[m.id]||{}, {home_score: parseInt(e.target.value)||null});
-      validateScores();
-    });
-    if (as) as.addEventListener('input', function(e){
-      predictions[m.id] = Object.assign({}, predictions[m.id]||{}, {away_score: parseInt(e.target.value)||null});
-      validateScores();
-    });
-
-    var pv = document.getElementById('wcp-prev');
-    var nx = document.getElementById('wcp-next');
-    if (pv) pv.addEventListener('click', function(){ currentIdx--; renderMatch(); });
-    if (nx) nx.addEventListener('click', function(){ currentIdx++; renderMatch(); });
-
-    var sb = document.getElementById('wcp-submit');
-    if (sb) sb.addEventListener('click', function(){
-      if (!validateScores()) return; // منع الإرسال لو النتيجة متعارضة
-      submitPrediction(m);
-    });
-  }
-
-  function renderAlready(m, body) {
-    var pred = predictions[m.id] || {};
-    var lbl  = {home:'فوز '+m.home_team, draw:'تعادل', away:'فوز '+m.away_team};
-    var next = matches.findIndex(function(x,i){ return i>currentIdx && !savedPhones[x.id]; });
-    body.innerHTML =
-      '<div class="wcp-already">'+
-        '<strong>✅ سجّلت توقعك!</strong>'+
-        'توقعك: '+(lbl[pred.prediction]||'—')+'<br>سنرسل لك الجائزة إذا أصبت'+
-        (next>-1?'<br><br><button class="wcp-submit" id="wcp-nm" style="margin-top:12px;">مباراة أخرى ←</button>':'')+
-      '</div>';
-    var nb = document.getElementById('wcp-nm');
-    if (nb) nb.addEventListener('click', function(){ currentIdx=next; renderMatch(); });
-  }
-
-  async function submitPrediction(m) {
-    var pred = predictions[m.id] || {};
-    var btn  = document.getElementById('wcp-submit');
-    var err  = document.getElementById('wcp-score-err');
-
-    if (!pred.prediction) { if(err){err.textContent='اختر أولاً من سيفوز';err.style.display='block';} return; }
-
-    btn.disabled = true;
-    btn.innerHTML = '<span>⏳</span> جاري الحفظ...';
-
-    try {
-      var res = await sbFetch('predictions', {
-        method:'POST',
-        body: JSON.stringify({
-          match_id:      m.id,
-          store_id:      CFG.storeId,
-          email:         userPhone+'@phone.local',
-          phone:         userPhone,
-          prediction:    pred.prediction,
-          home_score:    pred.home_score||null,
-          away_score:    pred.away_score||null,
-          favorite_team: userTeam||null,
-        }),
-        prefer:'return=minimal',
-        returnJson:false,
-      });
-
-      if (res.status===201||res.status===200) {
-        saveLocal(m.id, userPhone);
-        renderSuccess(m, pred);
-      } else if (res.status===409) {
-        saveLocal(m.id, userPhone);
-        renderAlready(m, document.getElementById('wcp-body'));
-      } else {
-        btn.disabled=false; btn.innerHTML='<span>⚽</span> سجّل توقعي';
-        if(err){err.textContent='حدث خطأ، حاول مرة ثانية';err.style.display='block';}
-      }
-    } catch(e) {
-      btn.disabled=false; btn.innerHTML='<span>⚽</span> سجّل توقعي';
-      if(err){err.textContent='تحقق من اتصالك';err.style.display='block';}
-    }
-  }
-
-  function renderSuccess(m, pred) {
-    var body = document.getElementById('wcp-body');
-    var pts  = (pred.home_score!=null&&pred.away_score!=null)?25:10;
-    body.innerHTML =
-      '<div class="wcp-success">'+
-        '<span class="wcp-success-icon">🎉</span>'+
-        '<h3>تم تسجيل توقعك!</h3>'+
-        '<p>إذا أصبت، نرسل لك كود خصم <strong>'+CFG.couponValue+'</strong><br>على جوالك <strong>'+userPhone+'</strong></p>'+
-        '<div class="wcp-success-pts">تستحق حتى '+pts+' نقطة</div>'+
-        '<button class="wcp-submit" id="wcp-fin">متابعة التسوق</button>'+
-      '</div>';
-    var fb = document.getElementById('wcp-fin');
-    if (fb) fb.addEventListener('click', closeWidget);
-  }
-
-  function showErr(el, msg) {
-    if (!el) return;
-    el.textContent = msg;
-    el.classList.add('wcp-show');
-    setTimeout(function(){ el.classList.remove('wcp-show'); }, 3000);
-  }
-
-  /* ---- Trigger ---- */
-  function buildTrigger() {
-    var btn = document.createElement('button');
-    btn.id = 'wcp-trigger';
-    btn.style.display = 'none';
-    btn.innerHTML = '<span class="wcp-trigger-icon">⚽</span> توقع واربح <span class="wcp-trigger-badge">جديد</span>';
-    btn.addEventListener('click', function(e){
-      e.preventDefault(); e.stopPropagation(); openWidget();
-    });
-    document.body.appendChild(btn);
-  }
-
-  function showTrigger() {
-    var btn = document.getElementById('wcp-trigger');
-    if (btn) btn.style.display = 'flex';
-  }
-
-  /* ---- Init ---- */
-  async function init() {
-    loadLocal();
-    buildHTML();
-    buildTrigger();
-    await loadMatches();
-    var firstFresh = matches.findIndex(function(m){ return !savedPhones[m.id]; });
-    currentIdx = firstFresh===-1 ? 0 : firstFresh;
-    dataReady = true;
-    showTrigger();
-    if (CFG.trigger==='auto' && matches.length>0 && !wasDismissedToday()) {
-      setTimeout(openWidget, CFG.delaySeconds*1000);
-    }
-    window.WCPWidget = { open: openWidget, close: closeWidget };
-  }
-
-  if (document.readyState==='loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-})();
+/* ---- اختيار الفريق المفضل ---- */
+.wcp-team-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  border: 1px solid var(--wcp-gray-2);
+  border-radius: var(--wcp-radius-sm);
+  background: var(--wcp-white);
+  cursor: pointer;
+  font-family: var(--wcp-font);
+  transition: all 0.15s;
+  gap: 3px;
+  color: var(--wcp-text);
+}
+.wcp-team-btn:hover { border-color: var(--wcp-green); }
+.wcp-team-btn.wcp-team-sel {
+  background: var(--wcp-green);
+  border-color: var(--wcp-green);
+  color: white;
+}
