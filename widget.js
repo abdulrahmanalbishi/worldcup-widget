@@ -117,20 +117,21 @@
   }
 
   async function loadLeaderboard() {
-    var data = await sb('predictions?store_id=eq.'+CFG.storeId+'&select=user_id,phone,points&order=points.desc&limit=100');
+    var data = await sb('predictions?store_id=eq.'+CFG.storeId+'&select=user_id,phone,points&limit=500');
     if (!Array.isArray(data)) return [];
-    // تجميع حسب المستخدم
     var map = {};
     data.forEach(function(p) {
-      if (!map[p.user_id]) map[p.user_id] = { user_id: p.user_id, phone: p.phone, total: 0 };
+      if (!p.user_id) return;
+      if (!map[p.user_id]) map[p.user_id] = { user_id: p.user_id, phone: p.phone||'', total: 0, name: '—', team: '' };
       map[p.user_id].total += (p.points || 0);
     });
-    // اجلب الأسماء
     var ids = Object.keys(map);
     if (!ids.length) return [];
-    var users = await sb('users?id=in.('+ids.join(',')+')&select=id,name,favorite_team');
+    var users = await sb('users?select=id,name,favorite_team&limit=200');
     if (Array.isArray(users)) {
-      users.forEach(function(u) { if(map[u.id]) { map[u.id].name=u.name; map[u.id].team=u.favorite_team; } });
+      users.forEach(function(u) {
+        if (map[u.id]) { map[u.id].name = u.name||'—'; map[u.id].team = u.favorite_team||''; }
+      });
     }
     return Object.values(map).sort(function(a,b){return b.total-a.total;}).slice(0,10);
   }
